@@ -1,0 +1,166 @@
+---
+title: "BellaBeat"
+author: "Chaïmae B"
+date: "2023-07-25"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+# Installation des packages
+
+```{r}
+install.packages("ggplot2")
+install.packages("tidyverse")
+install.packages("lubridate")
+install.packages("dplyr")
+install.packages("here")
+install.packages("skimr")
+install.packages("janitor")
+install.packages("knitr")
+
+```
+
+# **Suite du téléchargement des packages**
+
+```{r}
+library(ggplot2)
+library(tidyverse)
+library(lubridate)
+library(dplyr)
+library(here)
+library(skimr)
+library(janitor)
+library(knitr)
+```
+
+# **Visualisation des données**
+
+```{r}
+head(activité_journalière)
+head(sommeil)
+str(activité_journalière)
+str(sommeil)
+```
+
+# **Nettoyage**
+
+### Vérification des valeurs uniques
+
+```{r}
+n_unique(activité_journalière$Id)
+n_unique(sommeil$Id)
+```
+
+### Suppression des valeurs doubles et des valeurs vides
+```{r}
+activité_journalière <- activité_journalière %>%
+  distinct() %>%
+  drop_na()
+sommeil <- sommeil %>%
+  distinct() %>%
+  drop_na()
+```
+
+### Vérification des doublons
+
+```{r}
+sum(duplicated(activité_journalière))
+sum(duplicated(sommeil))
+```
+
+# **Analyse générale des tableaux**
+
+```{r}
+activité_journalière %>%  
+  select(TotalSteps, TotalDistance, SedentaryMinutes, Calories) %>%
+  summary()
+sommeil %>%  
+  select(TotalSleepRecords, TotalMinutesAsleep, TotalTimeInBed) %>%
+  summary()
+```
+# **Visualisation**
+
+### Distance parcourue et calories brûlées
+```{r}
+ggplot(data=activité_journalière, aes(x=TotalDistance, y=Calories)) + 
+  geom_point() + geom_smooth() + labs(title="Distance parcourue et Calories brûlées")
+```
+```{r}
+correlation <- cor(activité_journalière$TotalDistance, activité_journalière$Calories)
+print(correlation)
+```
+
+0.6449619 indique une corrélation positive modérée. Cela suggère qu'il y a une relation positive entre les deux variables, mais elle n'est pas parfaite. 
+
+# Création du graphique de la répartition des activités des utilisateurs
+
+```{r}
+colonnes_interet <- c(11,12,13,14)
+moyennes <- colMeans(activité_journalière[, colonnes_interet], na.rm = TRUE)
+```
+
+# Création du data frame pour le graphique
+```{r}
+data_moyennes <- data.frame(Categories = names(moyennes), Moyennes = moyennes)
+```
+
+# Création du graphique circulaire
+
+```{r}
+ggplot(data_moyennes, aes(x = "", y = Moyennes, fill = Categories)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+  labs(title = "Répartition du temps moyen d'activité des utilisateurs",
+       x = NULL,
+       y = NULL,
+       fill = "Catégorie") +
+  theme_minimal() +
+  theme(legend.position = "right") +
+  scale_fill_manual(labels = paste0(data_moyennes$Categories, ": ", round(data_moyennes$Moyennes, 2)),
+                    values = scales::hue_pal()(length(moyennes)))
+```
+En moyenne, les utilisateurs passent un temps important de manière sédentaire. 
+
+### Temps de sommeil au lit vs temps de sommeil en dehors du lit
+
+```{r}
+# Calculer la différence entre les deux colonnes
+Difference <- mean(sommeil$TotalTimeInBed - sommeil$TotalMinutesAsleep)
+
+# Calculer la somme d'une colonne
+Somme <- mean(sommeil$TotalMinutesAsleep)
+
+# Créer un vecteur avec les valeurs de différence et de somme
+vecteur <- c(Difference, Somme)
+
+# Créer un vecteur avec les noms des catégories
+categories <- c("Catégorie 1", "Catégorie 2")
+
+# Créer le graphique en barres avec les noms des catégories
+barplot(vecteur, col = c("blue", "green"), main = "Répartition du temps de sommeil réel et du temps passé au lit", names.arg = categories, xlab = "Catégories", ylab = "Valeurs")
+
+# Ajouter les valeurs au-dessus des barres
+text(x = barplot(vecteur), y = vecteur, labels = vecteur, pos = 3, cex = 1.2, col = "black")
+```
+```{r}
+pourcentage <- (Difference / Somme) * 100
+pourcentage
+```
+Il semble que des utilisateurs passent une partie de leur temps (9%) éveillé au lit.
+
+
+```{r}
+# Utilisation de inner_join() pour fusionner les données
+donnees_combinees <- inner_join(activité_journalière, sommeil, by = "Id")
+
+# Création du graphique avec les données combinées
+ggplot(data = donnees_combinees, aes(x = TotalDistance, y = TotalMinutesAsleep)) +
+  geom_point() +
+  geom_smooth() +
+  labs(title = "Distance parcourue et temps de sommeil")
+```
+```{r}
+correlation <- cor(donnees_combinees$TotalDistance, donnees_combinees$TotalMinutesAsleep)
+print(correlation)
+```
